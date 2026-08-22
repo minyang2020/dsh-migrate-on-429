@@ -73,7 +73,8 @@ Restart the DeepSeek Harness desktop app.
 
 ```bash
 git clone https://github.com/minyang2020/dsh-migrate-on-429.git
-# then add it as a link dependency as above
+# then follow the "Local development (link dependency)" steps above:
+# point the link path at your cloned directory, run pnpm install, restart.
 ```
 
 > Publishing as an npm package / via a plugin marketplace is planned.

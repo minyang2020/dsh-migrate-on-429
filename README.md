@@ -79,8 +79,9 @@ cd <profiles>/web && pnpm install
 ### 从 GitHub 安装
 
 ```bash
-git clone https://github.com/<you>/dsh-migrate-on-429.git
-# 然后按上面的 link 依赖方式加入 profile
+git clone https://github.com/minyang2020/dsh-migrate-on-429.git
+# 然后按上面的「本地开发（link 依赖）」方式，把 package.json 里的
+# link 路径换成你 clone 下来的本机目录，再 pnpm install + 重启。
 ```
 
 > 安装为 npm 包 / 通过插件市场分发的方式待后续补充。
