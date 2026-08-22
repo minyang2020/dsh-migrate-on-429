@@ -55,9 +55,9 @@ DeepSeek Harness (dsh) 插件：当会话**频繁触发 429 TPM 限流**（通�
 ### ⚠️ 与旧插件 `dsh-auto-continue-429` 的关系（安装前必读）
 
 - **本插件取代 `dsh-auto-continue-429`**：两者监听同一批 429 事件，**不要同时启用**，否则会互相抢着重试/迁移。安装本插件前，请先把旧插件从 `dependencies` 和 `dsh.profile.bundles` 里移除。
-- 两个包名不同（`dsh-migrate-on-429` vs `dsh-auto-continue-429`），npm / 安装器解析不会撞名。
+- 两个包名不同（`@minyang2026/dsh-migrate-on-429` vs `dsh-auto-continue-429`），npm / 安装器解析不会撞名。
 - 若你之前装过 `dsh-auto-continue-429`：卸载它 → 安装本插件 → 重启应用。
-- npm registry 上 `dsh-migrate-on-429` 当前**未被占用**（后续计划发布为 npm 包，届时安装方式会更简单）。
+- 本插件已发布到 npm：`@minyang2026/dsh-migrate-on-429`（scoped 包）。
 
 ### 本地开发（link 依赖）
 
@@ -76,6 +76,16 @@ cd <profiles>/web && pnpm install
 
 重启 DeepSeek Harness 桌面应用生效。
 
+### 从 npm 安装（推荐）
+
+```bash
+dsh plugin --profile web add @minyang2026/dsh-migrate-on-429
+```
+
+> `dsh` 是 DeepSeek Harness 的命令行入口（桌面应用内置；独立 CLI 可用 `npm i -g @deepseek-ai/dsh` 安装）。`dsh plugin` 会把参数转发给 profile 目录下的 pnpm，从 npm registry 安装后重启应用生效。
+>
+> 注意：DSH Web 的「插件市场」目前只收录 awesome-dsh-plugin.com 精选列表里的插件（curated list），**不是** npm registry 的全量搜索 —— 本插件尚未提交收录，市场里暂时搜不到，请用上面的 `dsh plugin` 命令安装。
+
 ### 从 GitHub 安装
 
 ```bash
@@ -84,7 +94,7 @@ git clone https://github.com/minyang2020/dsh-migrate-on-429.git
 # link 路径换成你 clone 下来的本机目录，再 pnpm install + 重启。
 ```
 
-> 安装为 npm 包 / 通过插件市场分发的方式待后续补充。
+> 已发布为 npm 包：`@minyang2026/dsh-migrate-on-429`（见上方「从 npm 安装」）。插件市场（awesome-dsh-plugin.com 精选列表）收录为后续计划。
 
 ## 设计要点
 

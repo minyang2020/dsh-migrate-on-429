@@ -69,6 +69,16 @@ cd <profiles>/web && pnpm install
 
 Restart the DeepSeek Harness desktop app.
 
+### From npm (recommended)
+
+```bash
+dsh plugin --profile web add @minyang2026/dsh-migrate-on-429
+```
+
+> `dsh` is the DeepSeek Harness CLI (bundled with the desktop app; a standalone CLI can be installed via `npm i -g @deepseek-ai/dsh`). `dsh plugin` forwards its arguments to pnpm in the profile directory, installs from the npm registry, then restart the app.
+>
+> Note: DSH Web's "plugin market" only lists plugins curated in the awesome-dsh-plugin.com catalog — it is **not** a full-text search over the npm registry. This plugin is not yet submitted there, so it won't show up in the market; use the `dsh plugin` command above instead.
+
 ### From GitHub
 
 ```bash
@@ -77,13 +87,14 @@ git clone https://github.com/minyang2020/dsh-migrate-on-429.git
 # point the link path at your cloned directory, run pnpm install, restart.
 ```
 
-> Publishing as an npm package / via a plugin marketplace is planned.
+> Published on npm as `@minyang2026/dsh-migrate-on-429` (see "From npm" above). Submitting it to the plugin market (awesome-dsh-plugin.com curated list) is planned.
 
 ## Relationship with the old plugin (important)
 
 - **This plugin replaces `dsh-auto-continue-429`.** Do **not** enable both at the same time — both listen to the same 429 events and would fight over retries/migrations. Remove the old plugin from both `dependencies` and `dsh.profile.bundles` before installing this one.
-- The package name `dsh-migrate-on-429` is distinct from `dsh-auto-continue-429`, so npm/installer resolution won't collide.
+- The package name `@minyang2026/dsh-migrate-on-429` is distinct from `dsh-auto-continue-429`, so npm/installer resolution won't collide.
 - If you previously installed `dsh-auto-continue-429`, uninstall it, then install this plugin and restart the app.
+- Published on npm as `@minyang2026/dsh-migrate-on-429` (scoped).
 
 ## Design notes
 
