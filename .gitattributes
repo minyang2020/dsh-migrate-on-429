@@ -1,0 +1,10 @@
+# Normalize line endings to LF in the repository (files checked in as LF).
+* text=auto eol=lf
+
+# Explicitly normalize the text files of this package.
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.md   text eol=lf
+*.json text eol=lf
+*.yml  text eol=lf
+LICENSE text eol=lf
