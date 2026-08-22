@@ -1,0 +1,38 @@
+{
+  "name": "dsh-migrate-on-429",
+  "version": "0.1.0",
+  "description": "DeepSeek Harness (dsh) plugin: when a session keeps hitting 429 TPM rate limits (typically because the context has grown too long), automatically summarize the current session, hand the task over to a fresh session, and continue there — a true handoff (old session cancelled first), never parallel work. Superset of the old auto-continue behavior (retries a couple of times before migrating).",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime"
+      ],
+      "platform": "web",
+      "immediately": true
+    }
+  },
+  "files": [
+    "lib/**/*.js",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-llm": "^0.1.0-rc.7 || ^0.1.0"
+  },
+  "scripts": {
+    "check": "node --check lib/index.js && node --check lib/client.js"
+  },
+  "license": "MIT"
+}
