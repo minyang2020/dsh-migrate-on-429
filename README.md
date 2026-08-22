@@ -1,5 +1,7 @@
 # dsh-migrate-on-429
 
+**中文** · [English](README.en.md)
+
 DeepSeek Harness (dsh) 插件：当会话**频繁触发 429 TPM 限流**（通常因为上下文过长，每次请求携带超大输入）时，自动**总结当前会话并迁移到新会话继续任务** —— 先取消旧会话、再启动新会话，保证**交接而非并行**。
 
 旧插件 `dsh-auto-continue-429` 只会反复发 `continue` 重试（每次 continue 都重新发送全部超大上下文 → 继续 429 → 纯烧额度）。本插件是它的超集：阈值前照常自动 continue 重试，仍持续失败就真正"换一个干净会话"续跑。
@@ -49,6 +51,13 @@ DeepSeek Harness (dsh) 插件：当会话**频繁触发 429 TPM 限流**（通�
 同时，插件每次加载后延迟执行一次**启动对账**（`config.reconcileDelayMs`，默认 3000ms）：扫描全部会话（活跃 + 持久化），凡 `cwd` 能解析到某工作区但尚未登记的会话，自动补 `attachSession`（幂等）。这样即使升级前已产生过「未登记」的历史孤儿会话，重启后也会被自动补进正确工作区。可在 profile 的插件行配置里用 `reconcileDelayMs` 调整（设为 `0` 则插件加载后立即对账）。
 
 ## 打包 / 安装
+
+### ⚠️ 与旧插件 `dsh-auto-continue-429` 的关系（安装前必读）
+
+- **本插件取代 `dsh-auto-continue-429`**：两者监听同一批 429 事件，**不要同时启用**，否则会互相抢着重试/迁移。安装本插件前，请先把旧插件从 `dependencies` 和 `dsh.profile.bundles` 里移除。
+- 两个包名不同（`dsh-migrate-on-429` vs `dsh-auto-continue-429`），npm / 安装器解析不会撞名。
+- 若你之前装过 `dsh-auto-continue-429`：卸载它 → 安装本插件 → 重启应用。
+- npm registry 上 `dsh-migrate-on-429` 当前**未被占用**（后续计划发布为 npm 包，届时安装方式会更简单）。
 
 ### 本地开发（link 依赖）
 
