@@ -56,9 +56,9 @@ The plugin also runs a one-time **startup reconciliation** after each load (`con
 
 ```jsonc
 // profiles/web/package.json dependencies
-"dsh-migrate-on-429": "link:C:/path/to/dsh-migrate-on-429"
+"@minyang2026/dsh-migrate-on-429": "link:C:/path/to/dsh-migrate-on-429"
 // profiles/web/package.json dsh.profile.bundles
-"dsh-migrate-on-429"
+"@minyang2026/dsh-migrate-on-429"
 ```
 
 Remove the old `dsh-auto-continue-429` (bundles + dependencies), then:
@@ -68,6 +68,14 @@ cd <profiles>/web && pnpm install
 ```
 
 Restart the DeepSeek Harness desktop app.
+
+> **Upgrading from 0.1.0**: the 0.1.0 bundle patch (`cordis.patch.yml`) wrongly
+> declared the plugin row's `name` as unscoped `dsh-migrate-on-429`, so the loader
+> couldn't resolve the scoped package from node_modules without an alias
+> dependency: `"dsh-migrate-on-429": "npm:@minyang2026/dsh-migrate-on-429@^0.1.0"`.
+> From 0.1.1 the patch uses the real package name `@minyang2026/dsh-migrate-on-429` —
+> **remove that alias** and use the scoped name above for both the dependency and
+> the bundles list (npm install: see below).
 
 ### From npm (recommended)
 

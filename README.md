@@ -63,9 +63,9 @@ DeepSeek Harness (dsh) 插件：当会话**频繁触发 429 TPM 限流**（通�
 
 ```jsonc
 // profiles/web/package.json dependencies
-"dsh-migrate-on-429": "link:C:/path/to/dsh-migrate-on-429"
+"@minyang2026/dsh-migrate-on-429": "link:C:/path/to/dsh-migrate-on-429"
 // profiles/web/package.json dsh.profile.bundles 追加
-"dsh-migrate-on-429"
+"@minyang2026/dsh-migrate-on-429"
 ```
 
 移除旧的 `dsh-auto-continue-429`（bundles + dependencies），然后：
@@ -75,6 +75,13 @@ cd <profiles>/web && pnpm install
 ```
 
 重启 DeepSeek Harness 桌面应用生效。
+
+> **从 0.1.0 升级**：0.1.0 的打包补丁 `cordis.patch.yml` 错误地把插件行的 `name`
+> 写成了不带 scope 的 `dsh-migrate-on-429`，loader 按这个名在 node_modules 里解析不到
+> scoped 包，需要一条别名依赖才能加载：
+> `"dsh-migrate-on-429": "npm:@minyang2026/dsh-migrate-on-429@^0.1.0"`。
+> 从 0.1.1 起补丁已改为真实包名 `@minyang2026/dsh-migrate-on-429`，**请删除该别名**，
+> 依赖与 bundles 直接使用上面的 scoped 名即可（npm 安装见下节）。
 
 ### 从 npm 安装（推荐）
 
