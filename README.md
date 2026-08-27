@@ -30,6 +30,10 @@ DeepSeek Harness (dsh) 插件：当会话**频繁触发 429 TPM 限流**（通�
 | `windowMs` | `180000` | 请求级 429 滚动统计窗口（30s–1h） |
 | `llmSummary` | `true` | 尝试 LLM 精炼交接摘要（失败自动回退结构化） |
 | `continueMessage` | `"continue"` | 阈值前自动 continue 的消息内容 |
+| `providerBurstWindowMs` | `30000` | provider 级限流判定窗口（5s–5min） |
+| `providerBurstSessions` | `2` | 窗口内同时 429 的会话数 ≥ 此值判定 provider 级限流（2–20） |
+| `providerBurstCount` | `3` | 且窗口内 429 总数 ≥ 此值（2–50） |
+| `globalCooldownMs` | `60000` | 突发限流 / 每次迁移后的全局冷却（5s–10min） |
 
 ## HTTP API（客户端 / 手动操作）
 
@@ -39,10 +43,22 @@ DeepSeek Harness (dsh) 插件：当会话**频繁触发 429 TPM 限流**（通�
 | `POST /api/migrate-on-429/toggle` | 主开关 |
 | `POST /api/migrate-on-429/toggle-quick` | 快捷开关 |
 | `POST /api/migrate-on-429/hide-button` | 隐藏输入区按钮 |
-| `POST /api/migrate-on-429/set-config` | 改 `migrateThreshold`/`windowMs`/`llmSummary` |
+| `POST /api/migrate-on-429/set-config` | 改 `migrateThreshold`/`windowMs`/`llmSummary`/`providerBurst*`/`globalCooldownMs` |
 | `POST /api/migrate-on-429/migrate-now` | **手动立即迁移**（body 可选 `{sessionId}`，缺省用当前活跃会话） |
 
-界面指示器计数模型：徽标显示**当前活跃会话**的 `turnStreak`（连续失败次数，与阈值同口径）；迁移中 ⏳、已迁移红色 ⇄。请求级 429 只在快速通道内部使用，不再混入展示计数。
+界面指示器计数模型：徽标显示**当前活跃会话**的 `turnStreak`（连续失败次数，与阈值同口径）；迁移中 ⏳、已迁移红色 ⇄、全局冷却 ⏸（显示剩余秒数）。请求级 429 只在快速通道内部使用，不再混入展示计数。
+
+## 多子代理并发：防连环交接
+
+> 适用场景：父代理开多个子代理时，429 通常是 **provider 级 TPM 限流** —— 所有会话同时被限，
+> 每个会话各自独立计数会导致 N 个会话同时各自 cancel+建新会话的「连环交接」，且新会话立刻又 429。
+> 0.1.2 起插件引入跨会话全局协调：
+
+1. **突发检测**：`providerBurstWindowMs` 窗口内 ≥ `providerBurstSessions` 个**不同会话**、且 429 总数 ≥ `providerBurstCount` → 判定 provider 级限流，进入 `globalCooldownMs` 全局冷却。冷却期间**所有会话**暂停自动 continue 与自动迁移（不再往已饱和的 TPM 池里烧请求）。
+2. **迁移互斥**：同一时刻只允许一个会话在迁移（先 cancel 旧、再建新，交接依旧串行）；在途期间其它会话触发迁移会被跳过并记录日志。
+3. **迁移后冷却**：每次迁移成功后同样进入全局冷却，防止兄弟会话紧随其后连环交接；冷却结束后若某个会话仍持续 429（那是它自身上下文过长的问题），它才被迁移。
+
+Web 界面徽标在冷却期显示「⏸」；手动「立即迁移」不受冷却限制（仍是明确的人工意图），但受全局互斥约束。
 
 ## 工作区登记 / 启动对账
 

@@ -30,6 +30,10 @@ Config file `~/.dsh/migrate-on-429.json` (editable in the Web settings "429 自�
 | `windowMs` | `180000` | Request-level 429 rolling window (30s–1h) |
 | `llmSummary` | `true` | Try LLM refinement of the handover summary (falls back to structured) |
 | `continueMessage` | `"continue"` | Message content for below-threshold auto-continue |
+| `providerBurstWindowMs` | `30000` | Provider-level throttle detection window (5s–5min) |
+| `providerBurstSessions` | `2` | Distinct sessions 429ing within the window ≥ this ⇒ provider-level throttle (2–20) |
+| `providerBurstCount` | `3` | And total 429s within the window ≥ this (2–50) |
+| `globalCooldownMs` | `60000` | Global cooldown after a detected burst or each migration (5s–10min) |
 
 ## HTTP API (client / manual)
 
@@ -39,10 +43,24 @@ Config file `~/.dsh/migrate-on-429.json` (editable in the Web settings "429 自�
 | `POST /api/migrate-on-429/toggle` | Master switch |
 | `POST /api/migrate-on-429/toggle-quick` | Quick switch |
 | `POST /api/migrate-on-429/hide-button` | Hide the composer button |
-| `POST /api/migrate-on-429/set-config` | Change `migrateThreshold`/`windowMs`/`llmSummary` |
+| `POST /api/migrate-on-429/set-config` | Change `migrateThreshold`/`windowMs`/`llmSummary`/`providerBurst*`/`globalCooldownMs` |
 | `POST /api/migrate-on-429/migrate-now` | **Manual immediate migration** (optional `{sessionId}` in body; defaults to the active session) |
 
-Badge model: shows the **active session's** `turnStreak` (same metric as the threshold); ⏳ while migrating, red ⇄ when migrated. Request-level 429s stay internal to the fast path and never pollute the shown count.
+Badge model: shows the **active session's** `turnStreak` (same metric as the threshold); ⏳ while migrating, red ⇄ when migrated, ⏸ during a global cooldown (with remaining seconds). Request-level 429s stay internal to the fast path and never pollute the shown count.
+
+## Multiple subagents: preventing handover cascades
+
+> Scenario: when the parent agent spawns several subagents, 429s are usually a
+> **provider-level TPM throttle** — every session gets limited at the same time. If
+> each session counts and migrates independently, you get an N-way "handover
+> cascade": every session cancels itself and creates a fresh one, and the fresh
+> ones immediately hit 429 again. Since 0.1.2 the plugin coordinates across sessions:
+
+1. **Burst detection** — if ≥ `providerBurstSessions` **distinct sessions** 429 within `providerBurstWindowMs` and the total 429 count is ≥ `providerBurstCount`, it is treated as a provider-level throttle and a `globalCooldownMs` cooldown starts. During the cooldown **all sessions** pause auto-continue and auto-migration (no more requests into an already-saturated TPM pool).
+2. **Migration mutex** — only one session migrates at a time (cancel old → create new stays serial); other sessions that cross their threshold while one is in flight are skipped and logged.
+3. **Post-migration cooldown** — every successful migration also starts the global cooldown, so sibling sessions can't cascade right behind it. After the cooldown, a session that is still failing (its own oversized context) is the one that gets migrated.
+
+The Web badge shows "⏸" during a cooldown; the manual "migrate now" button ignores the cooldown (explicit human intent) but still respects the global mutex.
 
 ## Workspace registration & startup reconciliation
 

@@ -456,6 +456,89 @@ async function main() {
     assert(!attachLog.some((a) => a.sessionId === "session-nocwd"), "无 cwd 的会话不登记");
   }
 
+  // ── Test 15: provider 级突发（多子代理同时 429）→ 全局冷却，压住连环迁移 ──
+  console.log("\n#15 多会话同时 429 → 突发检测进入全局冷却，不迁移、不 cancel");
+  {
+    const { ctx, handlers, agents, created, registeredRoutes } = buildCtx();
+    await apply(ctx, { providerBurstWindowMs: 10000, providerBurstSessions: 2, providerBurstCount: 3, globalCooldownMs: 60000 });
+    const sa = makeSession("session-p1", []);
+    const aa = makeAgent("session-p1", sa);
+    agents.set("session-p1", aa);
+    const sb = makeSession("session-p2", []);
+    const ab = makeAgent("session-p2", sb);
+    agents.set("session-p2", ab);
+    const reqErr = handlers.get("agent/request-error");
+    const payloadFor = (agent) => ({ agent, turn: 1, step: 1, provider: "deepseek", failure: { code: "RATE_LIMIT", message: "tpm" }, retryPolicy: undefined, signal: new AbortController().signal });
+    // 3 次 429 来自 2 个会话（≥ burstSessions=2 且 ≥ burstCount=3）→ provider 级限流
+    for (const h of reqErr) await h(payloadFor(aa), () => Promise.resolve(undefined));
+    for (const h of reqErr) await h(payloadFor(aa), () => Promise.resolve(undefined));
+    for (const h of reqErr) await h(payloadFor(ab), () => Promise.resolve(undefined));
+    // 冷却中即使凑满 turn 级阈值也不迁移
+    const turnEnd = handlers.get("session/event");
+    const err = { turn: 1, reason: { kind: "error", error: { code: "RATE_LIMIT", message: "rl" } } };
+    for (let i = 0; i < 3; i++) for (const h of turnEnd) h(sa, { type: "turn/end", data: err });
+    await sleep(80);
+    assert(created.length === 0, "provider 突发后冷却期内不触发迁移");
+    assert(aa._log.cancelled.length === 0, "冷却期内不 cancel");
+    // state 暴露冷却状态
+    let stateBody = null;
+    const route = registeredRoutes.find((r) => r.path === "/api/migrate-on-429/state");
+    await route.handler({ method: "GET" }, { writeHead() {}, end(b) { stateBody = JSON.parse(b); } });
+    assert(stateBody.globalCooldown && stateBody.globalCooldown.active === true, "state 暴露全局冷却 active=true");
+  }
+
+  // ── Test 16: 迁移互斥 —— 已有迁移在途时其它会话被跳过 ──
+  console.log("\n#16 迁移互斥：迁移在途时其它会话不并发交接");
+  {
+    const { ctx, handlers, agents, created } = buildCtx();
+    await apply(ctx, { providerBurstWindowMs: 10000, providerBurstSessions: 3, providerBurstCount: 100, globalCooldownMs: 60000 });
+    // 让 A 的 whenIdle 挂起 → 迁移保持 in-flight
+    let releaseIdle;
+    const gate = new Promise((r) => { releaseIdle = r; });
+    const sa = makeSession("session-m1", []);
+    const aa = makeAgent("session-m1", sa);
+    aa.whenIdle = () => gate;
+    agents.set("session-m1", aa);
+    const sb = makeSession("session-m2", []);
+    const ab = makeAgent("session-m2", sb);
+    agents.set("session-m2", ab);
+    const turnEnd = handlers.get("session/event");
+    const err = { turn: 1, reason: { kind: "error", error: { code: "RATE_LIMIT", message: "rl" } } };
+    // A 触发迁移（迁移在途：whenIdle 挂起）
+    for (let i = 0; i < 3; i++) for (const h of turnEnd) h(sa, { type: "turn/end", data: err });
+    // B 同时凑满阈值 → 应被互斥跳过
+    for (let i = 0; i < 3; i++) for (const h of turnEnd) h(sb, { type: "turn/end", data: err });
+    releaseIdle();
+    await sleep(80);
+    assert(created.length === 1, "迁移在途时只发生一次交接");
+    assert(aa._log.cancelled.length === 1 && ab._log.cancelled.length === 0, "只有第一个会话被 cancel");
+  }
+
+  // ── Test 17: 冷却结束后单个仍频繁失败的会话正常迁移（串行恢复） ──
+  console.log("\n#17 冷却结束后仍失败的会话逐个迁移（串行不并发）");
+  {
+    const { ctx, handlers, agents, created } = buildCtx();
+    await apply(ctx, { providerBurstWindowMs: 5000, providerBurstSessions: 3, providerBurstCount: 10, globalCooldownMs: 50 });
+    const sa = makeSession("session-r1", []);
+    const aa = makeAgent("session-r1", sa);
+    agents.set("session-r1", aa);
+    const sb = makeSession("session-r2", []);
+    const ab = makeAgent("session-r2", sb);
+    agents.set("session-r2", ab);
+    const turnEnd = handlers.get("session/event");
+    const err = { turn: 1, reason: { kind: "error", error: { code: "RATE_LIMIT", message: "rl" } } };
+    // A 先达标 → 迁移（成功后冷却 50ms）
+    for (let i = 0; i < 3; i++) for (const h of turnEnd) h(sa, { type: "turn/end", data: err });
+    // B 同步达标 → 此时被冷却压制
+    for (let i = 0; i < 3; i++) for (const h of turnEnd) h(sb, { type: "turn/end", data: err });
+    await sleep(120); // 等 A 完成 + 冷却过期
+    // B 仍失败 → 冷却结束后正常迁移（第二次交接发生在 A 之后）
+    for (let i = 0; i < 3; i++) for (const h of turnEnd) h(sb, { type: "turn/end", data: err });
+    await sleep(120);
+    assert(created.length === 2, "冷却结束后第二个会话也完成迁移（串行共 2 次）");
+    assert(aa._log.cancelled.length === 1 && ab._log.cancelled.length === 1, "两个会话各被 cancel 一次");
+  }
+
   console.log(`\n结果: ${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);
 }
