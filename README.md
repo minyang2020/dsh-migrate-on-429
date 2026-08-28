@@ -122,6 +122,7 @@ git clone https://github.com/minyang2020/dsh-migrate-on-429.git
 ## 设计要点
 
 - **交接而非并行**：迁移是串行的 —— `cancel(旧) → await whenIdle(旧) → create(新) → followup(新)`。旧会话迁移瞬间即被解除武装，永远不会与新会话同时跑同一任务。
+- **交接内容精简（去重 / 剪孤立，零 LLM）**：若原始任务本身是上一代迁移种子（`[系统交接] … —— 交接总结 ——`），递归解开迁移链、只保留最深层真实任务，中间各代交接整段丢弃；system-reminder（workspace 指令 / 技能目录等，新会话宿主会重新注入）不再抄进交接文档；用户后续指示与助手最近进展逐条去重、限长。防止「交接叠罗汉」让新会话首条消息重新撑爆上下文、当场再触发 429。
 - **双端安全**：宿主入口 `lib/index.js` 顶层零 node builtins / 零 `@deepseek-ai` import（客户端 bundler 也能 parse）；Node 端在 `apply()` 内懒加载 `node:fs/path/os`。`SessionId` 与模型选择注入（`system-prompt/assemble` + `agent/request`）全部内联实现，规避 profile 插件运行时无法可靠裸导入核心包的问题。
 - **健壮性**：所有观测型监听不抛异常；LLM 精炼带 25s 超时与降级；迁移失败仅解除本会话武装并记录日志，不影响其它会话。
 

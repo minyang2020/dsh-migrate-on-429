@@ -539,6 +539,67 @@ async function main() {
     assert(aa._log.cancelled.length === 1 && ab._log.cancelled.length === 1, "两个会话各被 cancel 一次");
   }
 
+// ── Test 17: 交接内容精简 —— 迁移链去嵌套 + system-reminder 过滤 ──
+  console.log("\n#17 交接内容精简：迁移链去嵌套、system 提醒剔除、真实指示保留");
+  {
+    // 上两代迁移的种子：本会话首条用户消息直接是上一代交接 prompt，
+    // 且其中嵌套着更早一代的交接总结（正是线上产生「废话叠罗汉」的形态）。
+    const nestedSeed = [
+      "[系统交接] 上一个会话 `session-old-2` 因 请求级 429 ×20（上下文过长导致 TPM 限流）已停止，任务交接给你继续。",
+      "",
+      "规则：",
+      "1. 不要重复已经完成的工作；",
+      "2. 先简要复述你对任务的理解和剩余步骤，然后立即继续执行；",
+      "3. 完整交接文档在 C:\\users\\minyang\\.dsh\\migrations\\old-2.md（需要时读取它获取更多细节）。",
+      "",
+      "—— 交接总结 ——",
+      "# 会话交接总结",
+      "",
+      "- 原会话: `session-old-2`",
+      "- 工作目录: `D:\\workspace\\proj`",
+      "- 迁移原因: 请求级 429 ×20",
+      "",
+      "## 原始任务",
+      "[系统交接] 上一个会话 `session-old-1` 因 请求级 429 ×10 已停止，任务交接给你继续。",
+      "",
+      "规则：",
+      "1. 不要重复已经完成的工作；",
+      "",
+      "—— 交接总结 ——",
+      "# 会话交接总结",
+      "",
+      "## 原始任务",
+      "帮我把退款的数据 先备份 再清空一下",
+      "",
+      "## 用户后续指示",
+      "1. 先做备份",
+      "",
+      "## 待办/未完成",
+      "（由续跑代理根据上述上下文自行识别）",
+    ].join("\n");
+    const { ctx, handlers, agents, created } = buildCtx();
+    await apply(ctx, {});
+    const session = makeSession("session-nest", [
+      { seq: 0, type: "user/message", data: { role: "user", id: "u0", content: [{ type: "text", text: nestedSeed }], source: { kind: "user" } } },
+      { seq: 1, type: "user/message", data: { role: "user", id: "u1", content: [{ type: "text", text: "<system-reminder>\nThe following workspace instructions may be relevant to your work.\n\nInstructions from: AGENTS.md\n\n# AGENTS.md\n（整份项目指令，宿主在新会话会重新注入，交接文档不应再抄一份）" }], source: { kind: "user" } } },
+      { seq: 2, type: "user/message", data: { role: "user", id: "u2", content: [{ type: "text", text: "1. 管理端 首页的工作台 有些数据没有跟学校搜索项联动\n2. 举报管理 加一个多选处理" }], source: { kind: "user" } } },
+      { seq: 3, type: "assistant/message", data: { message: { role: "assistant", content: [{ type: "text", text: "信息已足够全面。总结现状：需求2 前后端已完整实现；需求3 前端列已有但后端缺字段" }] } } },
+    ]);
+    const agent = makeAgent("session-nest", session);
+    agents.set("session-nest", agent);
+    const turnEnd = handlers.get("session/event");
+    for (let i = 0; i < 3; i++) for (const h of turnEnd) h(session, { type: "turn/end", data: { turn: 1, reason: { kind: "error", error: { code: "RATE_LIMIT", message: "rl" } } } });
+    await sleep(150);
+    assert(created.length === 1, "迁移链嵌套会话同样完成迁移");
+    const na = created[0] ? created[0].agent : null;
+    const text = na && na._log.followups[0] ? JSON.stringify(na._log.followups[0].content) : "";
+    assert(text.includes("帮我把退款的数据 先备份 再清空一下"), "原始任务解嵌套到最深层真实任务");
+    assert(!text.includes("session-old-2") && !text.includes("session-old-1"), "中间各代交接整段被剪掉，不再叠罗汉");
+    assert(!text.includes("Instructions from: AGENTS.md"), "system-reminder 整块注入被剔除");
+    assert(text.includes("管理端 首页的工作台"), "真实用户后续指示保留");
+    assert(text.includes("信息已足够全面"), "助手最近进展保留");
+  }
+
   console.log(`\n结果: ${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);
 }
