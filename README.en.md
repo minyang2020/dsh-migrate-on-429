@@ -91,9 +91,13 @@ Restart the DeepSeek Harness desktop app.
 > declared the plugin row's `name` as unscoped `dsh-migrate-on-429`, so the loader
 > couldn't resolve the scoped package from node_modules without an alias
 > dependency: `"dsh-migrate-on-429": "npm:@minyang2026/dsh-migrate-on-429@^0.1.0"`.
-> From 0.1.1 the patch uses the real package name `@minyang2026/dsh-migrate-on-429` —
-> **remove that alias** and use the scoped name above for both the dependency and
-> the bundles list (npm install: see below).
+> Versions 0.1.1–0.1.3 switched the patch `name` to the real package name but
+> shipped two defects: the `@`-prefixed YAML plain scalar was unquoted (illegal,
+> cordis fails to parse the patch at boot) and `lib/client.js` still registered
+> under the old unscoped id (browser-side `loaded without registering
+> "@minyang2026/dsh-migrate-on-429"`). **From 0.1.4** both are fixed (quoted
+> `name`, scoped registration id) — **remove that alias** and use the scoped name
+> above for both the dependency and the bundles list (npm install: see below).
 
 ### From npm (recommended)
 

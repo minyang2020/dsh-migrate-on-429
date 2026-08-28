@@ -7,4 +7,4 @@
 # 客户端：对话框底部 429 计数/迁移状态指示 + 开关；设置页可调迁移阈值。
 - insert:
     - id: migrate-on-429
-      name: @minyang2026/dsh-migrate-on-429
+      name: '@minyang2026/dsh-migrate-on-429'

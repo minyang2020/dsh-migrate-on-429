@@ -1,6 +1,6 @@
 {
   "name": "@minyang2026/dsh-migrate-on-429",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "DeepSeek Harness (dsh) plugin: when a session keeps hitting 429 TPM rate limits (typically because the context has grown too long), automatically summarize the current session, hand the task over to a fresh session, and continue there — a true handoff (old session cancelled first), never parallel work. Superset of the old auto-continue behavior (retries a couple of times before migrating).",
   "type": "module",
   "main": "lib/index.js",

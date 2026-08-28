@@ -96,8 +96,11 @@ cd <profiles>/web && pnpm install
 > 写成了不带 scope 的 `dsh-migrate-on-429`，loader 按这个名在 node_modules 里解析不到
 > scoped 包，需要一条别名依赖才能加载：
 > `"dsh-migrate-on-429": "npm:@minyang2026/dsh-migrate-on-429@^0.1.0"`。
-> 从 0.1.1 起补丁已改为真实包名 `@minyang2026/dsh-migrate-on-429`，**请删除该别名**，
-> 依赖与 bundles 直接使用上面的 scoped 名即可（npm 安装见下节）。
+> 0.1.1–0.1.3 把补丁 `name` 改成了真实包名，但仍有缺陷：YAML 裸值未加引号（`@` 开头的
+> plain scalar 非法，会造成 boot 解析失败）且 `lib/client.js` 的注册 id 仍是旧的
+> 无 scope 名（浏览器端 `loaded without registering "@minyang2026/dsh-migrate-on-429"`）。
+> **0.1.4 起**两者都已修正（`name` 加引号、注册 id 同步为 scoped 名），升级后请删除
+> 上面那段别名依赖，依赖与 bundles 直接使用 scoped 名即可（npm 安装见下节）。
 
 ### 从 npm 安装（推荐）
 
